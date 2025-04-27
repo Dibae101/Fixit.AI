@@ -1,0 +1,313 @@
+{% extends "playground/base.html" %}
+
+{% block title %}Break the App - Fixit.AI{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-bug"></i> 
+            Break the App
+            <small class="text-muted fs-5 ms-2">Inject faults and simulate API failures</small>
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Chaos Test Form -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <i class="fas fa-plus-circle me-2"></i> Create New Chaos Test
+            </div>
+            <div class="card-body">
+                <form method="post" id="chaosTestForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">Test Name</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.name.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.fault_type.id_for_label }}" class="form-label">Fault Type</label>
+                        {{ form.fault_type }}
+                        {% if form.fault_type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.fault_type.errors }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text mt-1" id="faultTypeHelpText"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.description.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-plus-circle me-1"></i> Create Chaos Test
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Existing Chaos Tests -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-wrench me-2"></i> Available Chaos Tests
+            </div>
+            <div class="card-body">
+                {% if chaos_tests %}
+                    <div class="list-group">
+                        {% for test in chaos_tests %}
+                            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">{{ test.name }}</h5>
+                                    <p class="mb-1 text-muted small">{{ test.get_fault_type_display }}</p>
+                                    <small>{{ test.description|truncatechars:100 }}</small>
+                                </div>
+                                <span class="badge bg-primary rounded-pill">{{ test.test_runs.count }} runs</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center my-3">No chaos tests created yet.</p>
+                {% endif %}
+                
+                <div class="text-center mt-3">
+                    <a href="{% url 'chaos_test_runs' %}" class="btn btn-outline-danger">
+                        <i class="fas fa-history me-1"></i> View Test Run History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Apply Chaos Section -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-bolt me-2"></i> Apply Chaos Tests to Recent Requests
+            </div>
+            <div class="card-body">
+                {% if api_requests and chaos_tests %}
+                    <p class="mb-3">Select a recent API request and a chaos test to apply:</p>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>URL</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for req in api_requests %}
+                                    <tr>
+                                        <td><span class="badge bg-primary">{{ req.method }}</span></td>
+                                        <td title="{{ req.url }}">{{ req.url|truncatechars:30 }}</td>
+                                        <td>
+                                            {% if req.responses.first %}
+                                                {% with response=req.responses.first %}
+                                                    {% if response.status_code >= 200 and response.status_code < 300 %}
+                                                        <span class="badge bg-success">{{ response.status_code }}</span>
+                                                    {% elif response.status_code >= 300 and response.status_code < 400 %}
+                                                        <span class="badge bg-warning">{{ response.status_code }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">{{ response.status_code }}</span>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% else %}
+                                                <span class="badge bg-secondary">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ req.created_at|time:"H:i:s" }}</td>
+                                        <td>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-danger dropdown-toggle" type="button" id="dropdownMenuButton{{ req.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-bug me-1"></i> Break It
+                                                </button>
+                                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ req.id }}">
+                                                    {% for test in chaos_tests %}
+                                                        <li>
+                                                            <a class="dropdown-item apply-chaos" href="#" 
+                                                               data-request-id="{{ req.id }}" 
+                                                               data-test-id="{{ test.id }}"
+                                                               data-test-name="{{ test.name }}">
+                                                                {{ test.name }} ({{ test.get_fault_type_display }})
+                                                            </a>
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% elif not api_requests %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i> No API requests found. Go to <a href="{% url 'api_tester' %}">API Tester</a> to create some requests first.
+                    </div>
+                {% elif not chaos_tests %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i> No chaos tests created yet. Create a chaos test above first.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Modal -->
+<div class="modal fade" id="chaosResultModal" tabindex="-1" aria-labelledby="chaosResultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="chaosResultModalLabel">
+                    <i class="fas fa-bug me-2"></i> Chaos Test Results
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="chaosResultContent">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" class="btn btn-primary" id="viewDetailBtn">
+                    <i class="fas fa-search me-1"></i> View Details
+                </a>
+                <a href="{% url 'rca_generator' %}" class="btn btn-warning">
+                    <i class="fas fa-search me-1"></i> Generate RCA
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Fault type help text
+        const faultTypeDescriptions = {
+            'MISSING_FIELD': 'Removes a required field from the request body',
+            'AUTH_FAILURE': 'Simulates authentication/authorization failures',
+            'CORRUPT_PAYLOAD': 'Corrupts the JSON payload to make it invalid',
+            'TIMEOUT': 'Simulates a request timeout',
+            'MISSING_DB': 'Simulates a missing database record',
+            'INVALID_PARAM': 'Adds invalid parameters to the request',
+            'OTHER': 'Custom fault type'
+        };
+        
+        $('#id_fault_type').change(function() {
+            const selectedType = $(this).val();
+            $('#faultTypeHelpText').text(faultTypeDescriptions[selectedType] || '');
+        });
+        
+        // Trigger change event on page load
+        $('#id_fault_type').trigger('change');
+        
+        // Apply chaos test
+        $('.apply-chaos').click(function(e) {
+            e.preventDefault();
+            
+            const requestId = $(this).data('request-id');
+            const testId = $(this).data('test-id');
+            const testName = $(this).data('test-name');
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('chaosResultModal'));
+            modal.show();
+            
+            // Set modal content to loading
+            $('#chaosResultContent').html(`
+                <div class="d-flex justify-content-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            `);
+            
+            // Send AJAX request
+            $.post('{% url "apply_chaos" %}', {
+                request_id: requestId,
+                test_id: testId,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            })
+            .done(function(data) {
+                console.log("Response data:", data); // Log response for debugging
+                
+                // Update modal content
+                $('#chaosResultContent').html(`
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i> ${data.message || 'Chaos test applied successfully!'}
+                    </div>
+                    
+                    <h5 class="mt-4">Results:</h5>
+                    <dl class="row">
+                        <dt class="col-sm-4">Chaos Test:</dt>
+                        <dd class="col-sm-8">${testName}</dd>
+                        
+                        <dt class="col-sm-4">Status Code:</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge bg-danger">${data.status_code || 'N/A'}</span>
+                        </dd>
+                        
+                        <dt class="col-sm-4">Test Run ID:</dt>
+                        <dd class="col-sm-8">${data.test_run_id || 'N/A'}</dd>
+                    </dl>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i> Next step: Generate an RCA to analyze the failure and get fix suggestions.
+                    </div>
+                `);
+                
+                // Update detail button link only if test_run_id is available
+                if (data.test_run_id) {
+                    $('#viewDetailBtn').attr('href', `{% url 'chaos_test_runs' %}`.split('/chaos-test-runs')[0] + '/chaos-test-run/' + data.test_run_id + '/');
+                } else {
+                    $('#viewDetailBtn').hide(); // Hide the button if no ID is available
+                }
+            })
+            .fail(function(xhr) {
+                let errorMessage = 'An error occurred while applying the chaos test.';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                
+                $('#chaosResultContent').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i> ${errorMessage}
+                    </div>
+                `);
+            });
+        });
+    });
+</script>
+{% endblock %}

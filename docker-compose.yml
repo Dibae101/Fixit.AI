@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  fixit-ai:
+    build: .
+    container_name: fixit-ai
+    restart: always
+    volumes:
+      - .:/app
+      - ./static:/app/static
+      - ./media:/app/media
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+    command: >
+      bash -c "
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        gunicorn fixit_ai.wsgi:application --bind 0.0.0.0:8000"

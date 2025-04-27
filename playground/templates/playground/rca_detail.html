@@ -1,0 +1,903 @@
+{% extends "playground/base.html" %}
+
+{% block title %}RCA Details - Fixit.AI{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf_viewer.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism.min.css">
+<style>
+    /* RCA Document Styling */
+    .pdf-container {
+        background-color: #f5f5f5;
+        padding: 30px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+        border-radius: 5px;
+    }
+
+    .pdf-page {
+        background-color: white;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        margin-bottom: 20px;
+        position: relative;
+        min-height: 900px;
+    }
+
+    .pdf-header {
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+    }
+
+    .pdf-section {
+        margin-bottom: 25px;
+        position: relative;
+    }
+
+    .pdf-section h3 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: #333;
+    }
+
+    .pdf-content {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #333;
+        padding: 15px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+
+    .pdf-content:hover {
+        border-color: #ddd;
+    }
+
+    .pdf-content.editable {
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, .25);
+        background-color: #f8f9fa;
+    }
+
+    .pdf-footer {
+        border-top: 1px solid #dee2e6;
+        padding-top: 20px;
+        margin-top: 20px;
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    .toolbar {
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+        background-color: white;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+
+    .annotation {
+        background-color: rgba(255, 255, 0, 0.3);
+        border-radius: 2px;
+        cursor: pointer;
+    }
+
+    .highlight-yellow {
+        background-color: rgba(255, 255, 0, 0.3);
+    }
+
+    .highlight-green {
+        background-color: rgba(0, 255, 0, 0.2);
+    }
+
+    .highlight-red {
+        background-color: rgba(255, 0, 0, 0.2);
+    }
+
+    .highlight-blue {
+        background-color: rgba(0, 0, 255, 0.2);
+    }
+
+    .note-icon {
+        position: absolute;
+        font-size: 16px;
+        color: #007bff;
+        cursor: pointer;
+        margin-left: 5px;
+    }
+
+    .pdf-watermark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-45deg);
+        font-size: 80px;
+        color: rgba(0, 0, 0, 0.03);
+        pointer-events: none;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+    .page-number {
+        position: absolute;
+        bottom: 20px;
+        right: 40px;
+        font-size: 12px;
+        color: #777;
+    }
+
+    .comment-bubble {
+        display: none;
+        position: absolute;
+        background: #fff9c4;
+        border-radius: 4px;
+        padding: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        z-index: 10;
+        max-width: 250px;
+        width: max-content;
+    }
+
+    .comment-bubble:after {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: 10px;
+        border-width: 0 10px 10px;
+        border-style: solid;
+        border-color: #fff9c4 transparent;
+    }
+
+    .comment-input {
+        width: 100%;
+        border: 1px solid #ddd;
+        padding: 5px;
+        margin-top: 5px;
+        font-size: 12px;
+    }
+
+    .code-block {
+        font-family: 'Courier New', monospace;
+        background-color: #f7f9fa;
+        border: 1px solid #e3e8ec;
+        border-radius: 5px;
+        padding: 15px;
+        margin: 10px 0;
+        overflow-x: auto;
+        position: relative;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .code-block::before {
+        content: 'CODE';
+        position: absolute;
+        top: -10px;
+        left: 10px;
+        background: #e3e8ec;
+        padding: 0 8px;
+        font-size: 10px;
+        font-weight: bold;
+        color: #516069;
+        border-radius: 3px;
+    }
+
+    .log-block {
+        font-family: 'Courier New', monospace;
+        background-color: #252a33;
+        color: #e6e6e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin: 10px 0;
+        overflow-x: auto;
+        position: relative;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .log-block::before {
+        content: 'LOG';
+        position: absolute;
+        top: -10px;
+        left: 10px;
+        background: #364156;
+        padding: 0 8px;
+        font-size: 10px;
+        font-weight: bold;
+        color: #e6e6e6;
+        border-radius: 3px;
+    }
+
+    .alert-note {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 12px 15px;
+        margin: 10px 0;
+        border-radius: 0 5px 5px 0;
+    }
+
+    .alert-note h5 {
+        margin-top: 0;
+        color: #856404;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .alert-warning {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 12px 15px;
+        margin: 10px 0;
+        border-radius: 0 5px 5px 0;
+    }
+
+    .alert-warning h5 {
+        margin-top: 0;
+        color: #721c24;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 12px 15px;
+        margin: 10px 0;
+        border-radius: 0 5px 5px 0;
+    }
+
+    .alert-success h5 {
+        margin-top: 0;
+        color: #155724;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .step-list {
+        margin: 15px 0;
+        padding-left: 0;
+        list-style-type: none;
+        counter-reset: step-counter;
+    }
+
+    .step-list li {
+        position: relative;
+        padding-left: 45px;
+        padding-bottom: 15px;
+        border-left: 2px solid #e9ecef;
+        margin-left: 15px;
+    }
+
+    .step-list li:last-child {
+        border-left: 2px solid transparent;
+    }
+
+    .step-list li::before {
+        content: counter(step-counter);
+        counter-increment: step-counter;
+        position: absolute;
+        left: -15px;
+        top: -5px;
+        width: 30px;
+        height: 30px;
+        background-color: #007bff;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+
+    .toc-section {
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px 20px;
+        margin-bottom: 25px;
+        border-radius: 4px;
+    }
+
+    .toc-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #007bff;
+    }
+
+    .toc-list {
+        list-style-type: none;
+        padding-left: 0;
+        margin-bottom: 0;
+    }
+
+    .toc-list li {
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+    }
+
+    .toc-list i {
+        margin-right: 10px;
+        font-size: 14px;
+        width: 20px;
+        text-align: center;
+    }
+
+    .toc-list a {
+        color: #495057;
+        text-decoration: none;
+    }
+
+    .toc-list a:hover {
+        color: #007bff;
+        text-decoration: underline;
+    }
+
+    @media print {
+
+        .toolbar,
+        .comment-bubble,
+        .note-icon {
+            display: none !important;
+        }
+
+        .pdf-page {
+            box-shadow: none;
+            margin: 0;
+            padding: 0;
+        }
+    }
+
+    /* RCA Detail Styling Enhancements */
+    .analysis-section-header {
+        font-weight: bold;
+        font-size: 1.1em;
+        color: #2c3e50;
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+        padding-bottom: 0.3em;
+        border-bottom: 1px solid #eee;
+    }
+
+    .analysis-list {
+        margin-left: 1.5em;
+        margin-bottom: 1em;
+    }
+
+    .analysis-list-item {
+        margin-bottom: 0.5em;
+        line-height: 1.5;
+    }
+
+    .inline-code {
+        font-family: monospace;
+        background-color: #f7f7f7;
+        padding: 2px 4px;
+        border-radius: 3px;
+        color: #e74c3c;
+        font-size: 0.9em;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.25em 0.6em;
+        font-size: 0.8em;
+        font-weight: 700;
+        border-radius: 0.25rem;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+    }
+
+    .badge-success {
+        background-color: #2ecc71;
+        color: white;
+    }
+
+    .badge-info {
+        background-color: #3498db;
+        color: white;
+    }
+
+    .badge-warning {
+        background-color: #f39c12;
+        color: white;
+    }
+
+    .badge-danger {
+        background-color: #e74c3c;
+        color: white;
+    }
+
+    .badge-secondary {
+        background-color: #7f8c8d;
+        color: white;
+    }
+
+    .toc-list a.active {
+        font-weight: bold;
+        color: #3498db;
+    }
+
+    .toc-list a:hover {
+        text-decoration: none;
+        color: #2980b9;
+    }
+
+    /* Improve section highlighting */
+    .rca-section:target {
+        animation: highlight-section 2s ease;
+    }
+
+    @keyframes highlight-section {
+        0% {
+            background-color: rgba(52, 152, 219, 0.2);
+        }
+
+        100% {
+            background-color: transparent;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between">
+            <h1 class="mb-0">
+                <i class="fas fa-search"></i>
+                Root Cause Analysis
+            </h1>
+            <div>
+                {% if source_type == 'chaos_test' %}
+                <a href="{% url 'rca_generator' %}" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-arrow-left me-1"></i> Back to RCA Generator
+                </a>
+                {% elif source_type == 'api_response' %}
+                <a href="{% url 'api_response_detail' response_id=api_response.id %}"
+                    class="btn btn-outline-primary me-2">
+                    <i class="fas fa-arrow-left me-1"></i> Back to API Response
+                </a>
+                {% else %}
+                <a href="{% url 'rca_generator' %}" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-arrow-left me-1"></i> Back to RCA Generator
+                </a>
+                {% endif %}
+                <button class="btn btn-outline-secondary print-button">
+                    <i class="fas fa-print me-1"></i> Print
+                </button>
+            </div>
+        </div>
+        <div class="text-muted">
+            <i class="fas fa-calendar me-1"></i> {{ rca.created_at }}
+        </div>
+    </div>
+</div>
+
+<!-- PDF-like Document with Toolbar -->
+<div class="row">
+    <div class="col-12">
+        <!-- Toolbar -->
+        <div class="toolbar d-flex justify-content-between align-items-center">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="editToggle">
+                    <i class="fas fa-edit me-1"></i> Edit
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success" id="saveBtn" disabled>
+                    <i class="fas fa-save me-1"></i> Save Changes
+                </button>
+            </div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-outline-warning highlight-btn" data-color="yellow">
+                    <i class="fas fa-highlighter me-1"></i> Yellow
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success highlight-btn" data-color="green">
+                    <i class="fas fa-highlighter me-1"></i> Green
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger highlight-btn" data-color="red">
+                    <i class="fas fa-highlighter me-1"></i> Red
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary highlight-btn" data-color="blue">
+                    <i class="fas fa-highlighter me-1"></i> Blue
+                </button>
+            </div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="addNoteBtn">
+                    <i class="fas fa-sticky-note me-1"></i> Add Note
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="clearMarksBtn">
+                    <i class="fas fa-eraser me-1"></i> Clear Marks
+                </button>
+            </div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="downloadPdfBtn">
+                    <i class="fas fa-file-pdf me-1"></i> Export PDF
+                </button>
+            </div>
+        </div>
+
+        <!-- PDF-like Document -->
+        <div class="pdf-container">
+            <div class="pdf-page" id="page1">
+                <div class="pdf-watermark">FIXIT.AI RCA</div>
+
+                <!-- Page Header -->
+                <div class="pdf-header">
+                    <div class="row align-items-center">
+                        <div class="col-12">
+                            <h2 class="m-0">ROOT CAUSE ANALYSIS REPORT</h2>
+                            <p class="text-muted mt-2 mb-0">
+                                {% if source_type == 'chaos_test' %}
+                                Analysis of {{ chaos_test_run.chaos_test.name }} Failure
+                                {% elif source_type == 'api_response' %}
+                                Analysis of API Response {{ api_response.status_code }} Failure
+                                {% else %}
+                                API Failure Analysis
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metadata Section -->
+                <div class="pdf-section">
+                    <div class="row">
+                        <div class="col-6">
+                            <table class="table table-sm table-bordered">
+                                <tr>
+                                    <th class="bg-light">Report ID:</th>
+                                    <td>{{ rca.id }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light">Created:</th>
+                                    <td>{{ rca.created_at }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light">Source Type:</th>
+                                    <td>
+                                        {% if source_type == 'chaos_test' %}
+                                        Chaos Test: {{ chaos_test_run.chaos_test.get_fault_type_display }}
+                                        {% else %}
+                                        Direct API Call
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-6">
+                            <table class="table table-sm table-bordered">
+                                <tr>
+                                    <th class="bg-light">Status Code:</th>
+                                    <td>
+                                        <span class="badge bg-danger">
+                                            {% if source_type == 'chaos_test' %}
+                                            {{ chaos_test_run.failed_response.status_code }}
+                                            {% else %}
+                                            {{ api_response.status_code }}
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light">Confidence:</th>
+                                    <td>
+                                        {% if rca.confidence == 'LOW' %}
+                                        <span class="badge severity-badge severity-low">Low</span>
+                                        {% elif rca.confidence == 'MEDIUM' %}
+                                        <span class="badge severity-badge severity-medium">Medium</span>
+                                        {% else %}
+                                        <span class="badge severity-badge severity-high">High</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-light">Response Time:</th>
+                                    <td>
+                                        {% if source_type == 'chaos_test' %}
+                                        {{ chaos_test_run.failed_response.response_time_ms }} ms
+                                        {% else %}
+                                        {{ api_response.response_time_ms }} ms
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Executive Summary -->
+                <div class="pdf-section" id="executive-summary">
+                    <h3>
+                        <i class="fas fa-bullseye text-danger me-2"></i>
+                        EXECUTIVE SUMMARY
+                        <button class="btn btn-sm btn-outline-secondary ms-2 copy-btn"
+                            data-clipboard-target="#rootCauseText">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </h3>
+                    <div class="pdf-content" id="rootCauseText" contenteditable="false">
+                        {{ rca.root_cause|linebreaksbr }}
+                    </div>
+                </div>
+
+                <!-- Detailed Analysis -->
+                <div class="pdf-section" id="detailed-analysis">
+                    <h3>
+                        <i class="fas fa-file-alt text-primary me-2"></i>
+                        DETAILED ANALYSIS
+                        <button class="btn btn-sm btn-outline-secondary ms-2 copy-btn"
+                            data-clipboard-target="#analysisText">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </h3>
+                    <div class="pdf-content" id="analysisText" contenteditable="false">
+                        <div id="formatted-analysis">
+                            {{ rca.detailed_analysis|safe|linebreaksbr }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table of Contents -->
+                <div class="toc-section">
+                    <div class="toc-title">Table of Contents</div>
+                    <ul class="toc-list">
+                        <li><i class="fas fa-file-alt"></i> <a href="#executive-summary">Executive Summary</a></li>
+                        <li><i class="fas fa-wrench"></i> <a href="#detailed-analysis">Detailed Analysis</a></li>
+                        <li><i class="fas fa-exchange-alt"></i> <a href="#request-comparison">Request Details</a></li>
+                        <li><i class="fas fa-exclamation-triangle"></i> <a href="#error-response">Error Response</a>
+                        </li>
+                        <li><i class="fas fa-check-circle"></i> <a href="#recommended-solutions">Recommended
+                                Solutions</a></li>
+                    </ul>
+                </div>
+
+                <!-- Page number -->
+                <div class="page-number">Page 1 of 2</div>
+            </div>
+
+            <!-- Second Page -->
+            <div class="pdf-page" id="page2">
+                <div class="pdf-watermark">FIXIT.AI RCA</div>
+
+                <!-- Solutions Section -->
+                <div class="pdf-section" id="recommended-solutions">
+                    <h3>
+                        <i class="fas fa-tools text-success me-2"></i>
+                        RECOMMENDED SOLUTIONS
+                        <button class="btn btn-sm btn-outline-secondary ms-2 copy-btn"
+                            data-clipboard-target="#solutionsText">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </h3>
+                    <div class="pdf-content" id="solutionsText" contenteditable="false">
+                        {{ rca.potential_solutions|linebreaksbr }}
+                    </div>
+                </div>
+
+                <!-- Request Comparison or Details -->
+                <div class="pdf-section" id="request-comparison">
+                    <h3>
+                        <i class="fas fa-exchange-alt text-warning me-2"></i>
+                        {% if source_type == 'chaos_test' %}
+                        REQUEST COMPARISON
+                        {% else %}
+                        REQUEST DETAILS
+                        {% endif %}
+                    </h3>
+                    <div class="row">
+                        {% if source_type == 'chaos_test' %}
+                        <!-- Original Request -->
+                        <div class="col-md-6 mb-3">
+                            <h5 class="card-title">Original Request</h5>
+                            <div class="bg-light p-3 rounded">
+                                <div class="mb-2">
+                                    <strong>Method:</strong> {{ chaos_test_run.original_request.method }}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>URL:</strong> {{ chaos_test_run.original_request.url }}
+                                </div>
+                                {% if chaos_test_run.original_request.body %}
+                                <div>
+                                    <strong>Body:</strong>
+                                    <div class="code-block">
+                                        <pre><code class="language-json">{{ chaos_test_run.original_request.body }}</code></pre>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Modified Request (that failed) -->
+                        <div class="col-md-6 mb-3">
+                            <h5 class="card-title">Failed Request (Fault Injected)</h5>
+                            <div class="bg-light p-3 rounded">
+                                <div class="mb-2">
+                                    <strong>Method:</strong> {{ chaos_test_run.modified_request.method }}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>URL:</strong> {{ chaos_test_run.modified_request.url }}
+                                </div>
+                                {% if chaos_test_run.modified_request.body %}
+                                <div>
+                                    <strong>Body:</strong>
+                                    <div class="code-block">
+                                        <pre><code class="language-json">{{ chaos_test_run.modified_request.body }}</code></pre>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- Direct API Request -->
+                        <div class="col-12 mb-3">
+                            <h5 class="card-title">API Request</h5>
+                            <div class="bg-light p-3 rounded">
+                                <div class="mb-2">
+                                    <strong>Method:</strong> {{ api_response.request.method }}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>URL:</strong> {{ api_response.request.url }}
+                                </div>
+                                {% if api_response.request.body %}
+                                <div>
+                                    <strong>Body:</strong>
+                                    <div class="code-block">
+                                        <pre><code class="language-json">{{ api_response.request.body }}</code></pre>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if api_response.request.headers %}
+                                <div>
+                                    <strong>Headers:</strong>
+                                    <div class="code-block">
+                                        <pre><code class="language-json">{{ api_response.request.headers }}</code></pre>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Failed Response -->
+                <div class="pdf-section" id="error-response">
+                    <h3><i class="fas fa-exclamation-triangle text-danger me-2"></i> ERROR RESPONSE</h3>
+                    <div class="bg-light p-3 rounded">
+                        <div class="mb-2">
+                            <strong>Status Code:</strong>
+                            <span class="badge bg-danger">
+                                {% if source_type == 'chaos_test' %}
+                                {{ chaos_test_run.failed_response.status_code }}
+                                {% else %}
+                                {{ api_response.status_code }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div>
+                            <strong>Response Body:</strong>
+                            <div class="log-block">
+                                <pre><code class="language-json">
+                                    {% if source_type == 'chaos_test' %}
+                                    {{ chaos_test_run.failed_response.response_body }}
+                                    {% else %}
+                                    {{ api_response.response_body }}
+                                    {% endif %}
+                                </code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="pdf-footer">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Generated by:</strong> Fixit.AI Root Cause Analysis Engine
+                        </div>
+                        <div class="col-6 text-end">
+                            <strong>Report Date:</strong> {{ rca.created_at|date:"F d, Y" }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page number -->
+                <div class="page-number">Page 2 of 2</div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-end mt-4 mb-5">
+            {% if source_type == 'chaos_test' %}
+            {% if not rca.healing_attempts.all %}
+            <a href="{% url 'rca_generator' %}" class="btn btn-success">
+                <i class="fas fa-magic me-1"></i> Try Self-Healing
+            </a>
+            {% else %}
+            <a href="{% url 'healing_detail' rca.healing_attempts.first.id %}" class="btn btn-outline-success">
+                <i class="fas fa-check-circle me-1"></i> View Healing Attempt
+            </a>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Comment Bubble Template (Hidden) -->
+<div id="comment-bubble-template" class="comment-bubble" style="display: none;">
+    <div class="comment-text"></div>
+    <input type="text" class="comment-input" placeholder="Add a comment...">
+    <div class="d-flex justify-content-between mt-2">
+        <button class="btn btn-sm btn-outline-danger delete-comment-btn">Delete</button>
+        <button class="btn btn-sm btn-primary save-comment-btn">Save</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-json.min.js"></script>
+<script>
+    // Format RCA Analysis Content
+    document.addEventListener('DOMContentLoaded', function () {
+        // Format the detailed analysis content
+        const detailedAnalysisContent = document.getElementById('formatted-analysis');
+        if (detailedAnalysisContent) {
+            // Format structured analysis with section headers and lists
+            const content = detailedAnalysisContent.innerHTML;
+
+            // Check for patterns that indicate section headers
+            let formattedContent = content
+                // Format potential section headers (followed by colon)
+                .replace(/\b([A-Z][A-Za-z\s]{3,}:)/g, '<div class="analysis-section-header">$1</div>')
+                // Format inline code references
+                .replace(/`([^`]+)`/g, '<span class="inline-code">$1</span>');
+
+            detailedAnalysisContent.innerHTML = formattedContent;
+
+            // Add section navigation highlighting
+            const tocLinks = document.querySelectorAll('.toc-list a');
+            tocLinks.forEach(link => {
+                link.addEventListener('click', function () {
+                    tocLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        }
+
+        // Initialize clipboard functionality
+        new ClipboardJS('.copy-btn');
+
+        // Initialize PDF export functionality
+        document.getElementById('downloadPdfBtn').addEventListener('click', function () {
+            const element = document.querySelector('.pdf-container');
+            const opt = {
+                margin: [0.5, 0.5, 0.5, 0.5],
+                filename: 'FixitAI-RCA-Report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            // Remove toolbar before export
+            const toolbar = document.querySelector('.toolbar');
+            toolbar.style.display = 'none';
+
+            // Generate PDF
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Restore toolbar after export
+                toolbar.style.display = 'flex';
+            });
+        });
+    });
+</script>
+{% endblock %}

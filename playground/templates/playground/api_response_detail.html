@@ -1,0 +1,184 @@
+{% extends "playground/base.html" %}
+
+{% block title %}API Response - Fixit.AI{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between">
+            <h1 class="mb-0">
+                <i class="fas fa-reply"></i>
+                API Response Details
+            </h1>
+            <a href="{% url 'api_tester' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-1"></i> Back to API Tester
+            </a>
+        </div>
+        <div class="text-muted">
+            <i class="fas fa-calendar me-1"></i> {{ api_response.created_at }}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Request Details -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-paper-plane me-2"></i> Request</span>
+                    <span class="badge bg-light text-primary">{{ api_request.method }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h5 class="card-title">URL</h5>
+                    <div class="bg-light p-2 rounded">
+                        <code>{{ api_request.url }}</code>
+                    </div>
+                </div>
+
+                {% if api_request.headers %}
+                <div class="mb-3">
+                    <h5 class="card-title">Headers</h5>
+                    <pre class="mb-0"><code>{{ api_request.headers }}</code></pre>
+                </div>
+                {% endif %}
+
+                {% if formatted_request_body %}
+                <div>
+                    <h5 class="card-title">Request Body</h5>
+                    <pre class="mb-0"><code>{{ formatted_request_body }}</code></pre>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Response Details -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header 
+                {% if api_response.status_code >= 200 and api_response.status_code < 300 %}
+                    bg-success
+                {% elif api_response.status_code >= 300 and api_response.status_code < 400 %}
+                    bg-warning text-dark
+                {% else %}
+                    bg-danger
+                {% endif %} text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-reply me-2"></i> Response</span>
+                    <span class="badge bg-light 
+                        {% if api_response.status_code >= 200 and api_response.status_code < 300 %}
+                            text-success
+                        {% elif api_response.status_code >= 300 and api_response.status_code < 400 %}
+                            text-warning
+                        {% else %}
+                            text-danger
+                        {% endif %}">
+                        {{ api_response.status_code }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title">Response Time</h5>
+                        <span class="text-muted">{{ api_response.response_time_ms }} ms</span>
+                    </div>
+                </div>
+
+                {% if api_response.response_headers %}
+                <div class="mb-3">
+                    <h5 class="card-title">Response Headers</h5>
+                    <pre class="mb-0"><code>{{ api_response.response_headers }}</code></pre>
+                </div>
+                {% endif %}
+
+                <div>
+                    <h5 class="card-title">Response Body</h5>
+                    <pre class="mb-0"><code>{{ formatted_response }}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if api_response.status_code >= 400 %}
+<!-- Root Cause Analysis Section for Failed Requests -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-search-plus me-2"></i> Root Cause Analysis
+            </div>
+            <div class="card-body">
+                {% if rca %}
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-check-circle me-2"></i> Root Cause Analysis Generated</h5>
+                    <p class="mb-0">An RCA has been generated for this API failure.</p>
+                </div>
+                <div class="mt-3">
+                    <h5>Root Cause</h5>
+                    <p>{{ rca.root_cause }}</p>
+
+                    <h5>Confidence</h5>
+                    <p>
+                        {% if rca.confidence == 'HIGH' %}
+                        <span class="badge bg-success">High</span>
+                        {% elif rca.confidence == 'MEDIUM' %}
+                        <span class="badge bg-warning">Medium</span>
+                        {% else %}
+                        <span class="badge bg-danger">Low</span>
+                        {% endif %}
+                    </p>
+
+                    <a href="{% url 'rca_detail' rca_id=rca.id %}" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i> View Full Analysis
+                    </a>
+                </div>
+                {% elif has_rca %}
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-check-circle me-2"></i> Root Cause Analysis Generated</h5>
+                    <p class="mb-0">An RCA has already been generated for this API failure.</p>
+                </div>
+                <div class="mt-3">
+                    <a href="{% url 'view_api_rca' response_id=api_response.id %}" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i> View Analysis
+                    </a>
+                </div>
+                {% else %}
+                <p>Generate a Root Cause Analysis to understand why this API request failed with status code {{
+                    api_response.status_code }}.</p>
+                <form method="post" action="{% url 'generate_api_rca' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="response_id" value="{{ api_response.id }}">
+                    <button type="submit" class="btn btn-info">
+                        <i class="fas fa-magic me-1"></i> Generate Root Cause Analysis
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Break the App Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <i class="fas fa-bug me-2"></i> Try Breaking This Request
+            </div>
+            <div class="card-body">
+                <p>Apply a chaos test to inject faults into this API request and see how it fails.</p>
+
+                <a href="{% url 'break_app' %}" class="btn btn-warning">
+                    <i class="fas fa-bug me-1"></i> Break This Request
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

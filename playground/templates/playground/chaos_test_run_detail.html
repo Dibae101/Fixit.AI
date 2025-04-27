@@ -1,0 +1,221 @@
+{% extends "playground/base.html" %}
+
+{% block title %}Chaos Test Run Detail - Fixit.AI{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between">
+            <h1 class="mb-0">
+                <i class="fas fa-bug"></i> 
+                Chaos Test Run Detail
+            </h1>
+            <a href="{% url 'chaos_test_runs' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Test Runs
+            </a>
+        </div>
+        <div class="text-muted">
+            <i class="fas fa-calendar me-1"></i> {{ run.created_at }}
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Test Information Card -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-info-circle me-2"></i> Chaos Test Information
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Test Details</h5>
+                        <dl class="row">
+                            <dt class="col-sm-4">Test Name:</dt>
+                            <dd class="col-sm-8">{{ run.chaos_test.name }}</dd>
+                            
+                            <dt class="col-sm-4">Fault Type:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-warning">{{ run.chaos_test.get_fault_type_display }}</span>
+                            </dd>
+                            
+                            <dt class="col-sm-4">Description:</dt>
+                            <dd class="col-sm-8">{{ run.chaos_test.description }}</dd>
+                            
+                            <dt class="col-sm-4">Test Run ID:</dt>
+                            <dd class="col-sm-8"><code>{{ run.id }}</code></dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Status</h5>
+                        <div class="mb-3">
+                            <strong>Response Code:</strong>
+                            {% if run.failed_response.status_code >= 200 and run.failed_response.status_code < 300 %}
+                                <span class="badge bg-success">{{ run.failed_response.status_code }}</span>
+                            {% elif run.failed_response.status_code >= 300 and run.failed_response.status_code < 400 %}
+                                <span class="badge bg-primary">{{ run.failed_response.status_code }}</span>
+                            {% elif run.failed_response.status_code >= 400 and run.failed_response.status_code < 500 %}
+                                <span class="badge bg-warning">{{ run.failed_response.status_code }}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ run.failed_response.status_code }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <strong>Response Time:</strong>
+                            <span class="badge bg-secondary">{{ run.failed_response.response_time_ms }} ms</span>
+                        </div>
+                        
+                        {% if has_rca %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i> RCA has been generated for this test run.
+                                <a href="{% url 'rca_detail' rca.id %}" class="btn btn-sm btn-success mt-2">
+                                    <i class="fas fa-search me-1"></i> View RCA
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i> No RCA has been generated yet.
+                                <form method="post" action="{% url 'rca_generator' %}" class="mt-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="chaos_test_run" value="{{ run.id }}">
+                                    <button type="submit" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-tools me-1"></i> Generate RCA
+                                    </button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Original Request vs. Modified Request -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-exchange-alt me-2"></i> Original vs Modified Request
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Original Request -->
+                    <div class="col-md-6 mb-3">
+                        <h5>Original Request</h5>
+                        <div class="bg-light p-3 rounded">
+                            <div class="mb-2">
+                                <strong>Method:</strong> {{ run.original_request.method }}
+                            </div>
+                            <div class="mb-2">
+                                <strong>URL:</strong> {{ run.original_request.url }}
+                            </div>
+                            {% if run.original_request.headers %}
+                                <div class="mb-2">
+                                    <strong>Headers:</strong>
+                                    <pre class="mt-2"><code>{{ run.original_request.headers }}</code></pre>
+                                </div>
+                            {% endif %}
+                            {% if run.original_request.body %}
+                                <div>
+                                    <strong>Body:</strong>
+                                    <pre class="mt-2"><code>{{ run.original_request.body }}</code></pre>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Modified Request (that failed) -->
+                    <div class="col-md-6 mb-3">
+                        <h5>Modified Request (Fault Injected)</h5>
+                        <div class="bg-light p-3 rounded">
+                            <div class="mb-2">
+                                <strong>Method:</strong> {{ run.modified_request.method }}
+                            </div>
+                            <div class="mb-2">
+                                <strong>URL:</strong> {{ run.modified_request.url }}
+                            </div>
+                            {% if run.modified_request.headers %}
+                                <div class="mb-2">
+                                    <strong>Headers:</strong>
+                                    <pre class="mt-2"><code>{{ run.modified_request.headers }}</code></pre>
+                                </div>
+                            {% endif %}
+                            {% if run.modified_request.body %}
+                                <div>
+                                    <strong>Body:</strong>
+                                    <pre class="mt-2"><code>{{ run.modified_request.body }}</code></pre>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Failed Response -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-exclamation-circle me-2"></i> Failed Response
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Status Code:</strong> 
+                    {% if run.failed_response.status_code >= 200 and run.failed_response.status_code < 300 %}
+                        <span class="badge bg-success">{{ run.failed_response.status_code }}</span>
+                    {% elif run.failed_response.status_code >= 300 and run.failed_response.status_code < 400 %}
+                        <span class="badge bg-primary">{{ run.failed_response.status_code }}</span>
+                    {% elif run.failed_response.status_code >= 400 and run.failed_response.status_code < 500 %}
+                        <span class="badge bg-warning">{{ run.failed_response.status_code }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">{{ run.failed_response.status_code }}</span>
+                    {% endif %}
+                </div>
+                
+                {% if run.failed_response.response_headers %}
+                    <div class="mb-3">
+                        <strong>Response Headers:</strong>
+                        <pre class="mt-2"><code>{{ run.failed_response.response_headers }}</code></pre>
+                    </div>
+                {% endif %}
+                
+                <div>
+                    <strong>Response Body:</strong>
+                    <pre class="mt-2"><code>{{ run.failed_response.response_body }}</code></pre>
+                </div>
+                
+                <div class="mt-3">
+                    <strong>Response Time:</strong> {{ run.failed_response.response_time_ms }} ms
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'break_app' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Break App
+            </a>
+            
+            {% if not has_rca %}
+                <a href="{% url 'rca_generator' %}" class="btn btn-warning">
+                    <i class="fas fa-search me-1"></i> Generate RCA
+                </a>
+            {% else %}
+                <div>
+                    <a href="{% url 'rca_detail' rca.id %}" class="btn btn-success me-2">
+                        <i class="fas fa-search me-1"></i> View RCA
+                    </a>
+                    <a href="{% url 'self_heal' %}" class="btn btn-primary">
+                        <i class="fas fa-magic me-1"></i> Try Self-Healing
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

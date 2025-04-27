@@ -1,0 +1,537 @@
+{% extends "playground/base.html" %}
+
+{% block title %}API Tester - Fixit.AI{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-exchange-alt"></i> 
+            API Tester
+            <small class="text-muted fs-5 ms-2">Send and test API requests</small>
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Request Form -->
+    <div class="col-lg-7 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-paper-plane me-2"></i> New API Request
+            </div>
+            <div class="card-body">
+                <form method="post" id="apiRequestForm">
+                    {% csrf_token %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label for="{{ form.url.id_for_label }}" class="form-label">URL</label>
+                            {{ form.url }}
+                            {% if form.url.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.url.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label for="{{ form.method.id_for_label }}" class="form-label">Method</label>
+                            {{ form.method }}
+                            {% if form.method.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.method.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.headers.id_for_label }}" class="form-label">Headers (JSON)</label>
+                        {{ form.headers }}
+                        {% if form.headers.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.headers.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.body.id_for_label }}" class="form-label">Request Body (JSON)</label>
+                        {{ form.body }}
+                        {% if form.body.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.body.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="button" class="btn btn-outline-secondary me-2" id="clearFormBtn">
+                                <i class="fas fa-eraser me-1"></i> Clear
+                            </button>
+                            <div class="dropdown d-inline-block me-2">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="externalApiDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-globe me-1"></i> External APIs
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="externalApiDropdown">
+                                    <li><a class="dropdown-item sample-request" href="#" data-request="get-users">GET Users List</a></li>
+                                    <li><a class="dropdown-item sample-request" href="#" data-request="get-user">GET Single User</a></li>
+                                    <li><a class="dropdown-item sample-request" href="#" data-request="create-user">POST Create User</a></li>
+                                    <li><a class="dropdown-item sample-request" href="#" data-request="update-user">PUT Update User</a></li>
+                                    <li><a class="dropdown-item sample-request" href="#" data-request="delete-user">DELETE User</a></li>
+                                </ul>
+                            </div>
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-outline-primary dropdown-toggle" type="button" id="internalApiDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-server me-1"></i> Internal APIs
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="internalApiDropdown">
+                                    <li><h6 class="dropdown-header">Todo API</h6></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="get-todos">GET All Todos</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="create-todo">POST Create Todo</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="get-todo">GET Single Todo</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="update-todo">PUT Update Todo</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="delete-todo">DELETE Todo</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="delete-completed-todos">DELETE Completed Todos</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><h6 class="dropdown-header">Product API</h6></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="get-products">GET All Products</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="create-product">POST Create Product</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="get-product">GET Single Product</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="update-product">PUT Update Product</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="delete-product">DELETE Product</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="get-available-products">GET Available Products</a></li>
+                                    <li><a class="dropdown-item internal-api" href="#" data-request="update-inventory">POST Update Inventory</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane me-1"></i> Send Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Request History -->
+    <div class="col-lg-5 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-history me-2"></i> Request History
+            </div>
+            <div class="card-body">
+                {% if recent_responses %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>URL</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for response in recent_responses %}
+                                    <tr>
+                                        <td><span class="badge bg-primary">{{ response.request.method }}</span></td>
+                                        <td title="{{ response.request.url }}">{{ response.request.url|truncatechars:25 }}</td>
+                                        <td>
+                                            {% if response.status_code >= 200 and response.status_code < 300 %}
+                                                <span class="badge bg-success">{{ response.status_code }}</span>
+                                            {% elif response.status_code >= 300 and response.status_code < 400 %}
+                                                <span class="badge bg-warning">{{ response.status_code }}</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">{{ response.status_code }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ response.created_at|time:"H:i:s" }}</td>
+                                        <td>
+                                            <a href="{% url 'api_response_detail' response.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center my-3">No request history yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Documentation -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-book me-2"></i> Internal API Documentation
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-tabs" id="apiDocTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="todos-tab" data-bs-toggle="tab" data-bs-target="#todos" type="button" role="tab" aria-controls="todos" aria-selected="true">Todo API</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button" role="tab" aria-controls="products" aria-selected="false">Product API</button>
+                    </li>
+                </ul>
+                <div class="tab-content pt-3" id="apiDocTabsContent">
+                    <div class="tab-pane fade show active" id="todos" role="tabpanel" aria-labelledby="todos-tab">
+                        <h5>Todo API Endpoints</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Method</th>
+                                        <th>Endpoint</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-success">GET</span></td>
+                                        <td><code>/api/todos/</code></td>
+                                        <td>List all todo items</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-primary">POST</span></td>
+                                        <td><code>/api/todos/</code></td>
+                                        <td>Create a new todo item</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-success">GET</span></td>
+                                        <td><code>/api/todos/{id}/</code></td>
+                                        <td>Retrieve a specific todo item</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-warning">PUT</span></td>
+                                        <td><code>/api/todos/{id}/</code></td>
+                                        <td>Update a specific todo item</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-warning">PATCH</span></td>
+                                        <td><code>/api/todos/{id}/</code></td>
+                                        <td>Partially update a specific todo item</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-danger">DELETE</span></td>
+                                        <td><code>/api/todos/{id}/</code></td>
+                                        <td>Delete a specific todo item</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-danger">DELETE</span></td>
+                                        <td><code>/api/todos/delete_completed/</code></td>
+                                        <td>Delete all completed todo items</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="products" role="tabpanel" aria-labelledby="products-tab">
+                        <h5>Product API Endpoints</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Method</th>
+                                        <th>Endpoint</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-success">GET</span></td>
+                                        <td><code>/api/products/</code></td>
+                                        <td>List all products</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-primary">POST</span></td>
+                                        <td><code>/api/products/</code></td>
+                                        <td>Create a new product</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-success">GET</span></td>
+                                        <td><code>/api/products/{id}/</code></td>
+                                        <td>Retrieve a specific product</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-warning">PUT</span></td>
+                                        <td><code>/api/products/{id}/</code></td>
+                                        <td>Update a specific product</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-warning">PATCH</span></td>
+                                        <td><code>/api/products/{id}/</code></td>
+                                        <td>Partially update a specific product</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-danger">DELETE</span></td>
+                                        <td><code>/api/products/{id}/</code></td>
+                                        <td>Delete a specific product</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-success">GET</span></td>
+                                        <td><code>/api/products/available/</code></td>
+                                        <td>List all available products</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-primary">POST</span></td>
+                                        <td><code>/api/products/{id}/update_inventory/</code></td>
+                                        <td>Update a product's inventory</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Get the base URL
+        const baseUrl = window.location.origin;
+        
+        // Clear form button
+        $('#clearFormBtn').click(function() {
+            $('#apiRequestForm')[0].reset();
+        });
+        
+        // Method change handler - disable body for GET/DELETE
+        $('#id_method').change(function() {
+            const method = $(this).val();
+            if (method === 'GET' || method === 'DELETE') {
+                $('#id_body').attr('disabled', 'disabled');
+            } else {
+                $('#id_body').removeAttr('disabled');
+            }
+        });
+        
+        // Sample requests for external APIs
+        $('.sample-request').click(function(e) {
+            e.preventDefault();
+            const requestType = $(this).data('request');
+            
+            // Sample request data
+            const samples = {
+                'get-users': {
+                    url: 'https://reqres.in/api/users?page=1',
+                    method: 'GET',
+                    headers: JSON.stringify({
+                        'Accept': 'application/json'
+                    }, null, 2),
+                    body: ''
+                },
+                'get-user': {
+                    url: 'https://reqres.in/api/users/2',
+                    method: 'GET',
+                    headers: JSON.stringify({
+                        'Accept': 'application/json'
+                    }, null, 2),
+                    body: ''
+                },
+                'create-user': {
+                    url: 'https://reqres.in/api/users',
+                    method: 'POST',
+                    headers: JSON.stringify({
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }, null, 2),
+                    body: JSON.stringify({
+                        "name": "John Doe",
+                        "job": "Developer"
+                    }, null, 2)
+                },
+                'update-user': {
+                    url: 'https://reqres.in/api/users/2',
+                    method: 'PUT',
+                    headers: JSON.stringify({
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }, null, 2),
+                    body: JSON.stringify({
+                        "name": "John Smith",
+                        "job": "Senior Developer"
+                    }, null, 2)
+                },
+                'delete-user': {
+                    url: 'https://reqres.in/api/users/2',
+                    method: 'DELETE',
+                    headers: JSON.stringify({
+                        'Accept': 'application/json'
+                    }, null, 2),
+                    body: ''
+                }
+            };
+            
+            // Fill the form with the sample data
+            if (samples[requestType]) {
+                const sample = samples[requestType];
+                $('#id_url').val(sample.url);
+                $('#id_method').val(sample.method);
+                $('#id_headers').val(sample.headers);
+                $('#id_body').val(sample.body);
+                
+                // Trigger the method change event
+                $('#id_method').trigger('change');
+            }
+        });
+        
+        // Sample requests for internal APIs
+        $('.internal-api').click(function(e) {
+            e.preventDefault();
+            const requestType = $(this).data('request');
+            
+            // Generate a UUID for endpoints that need an ID
+            const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+            
+            // Default headers
+            const defaultHeaders = JSON.stringify({
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }, null, 2);
+            
+            // Sample request data
+            const internalSamples = {
+                // Todo API endpoints
+                'get-todos': {
+                    url: `${baseUrl}/api/todos/`,
+                    method: 'GET',
+                    headers: defaultHeaders,
+                    body: ''
+                },
+                'create-todo': {
+                    url: `${baseUrl}/api/todos/`,
+                    method: 'POST',
+                    headers: defaultHeaders,
+                    body: JSON.stringify({
+                        "title": "Implement CRUD API",
+                        "description": "Create a fully functional REST API for our application",
+                        "completed": false,
+                        "priority": 2,
+                        "due_date": "2025-05-01"
+                    }, null, 2)
+                },
+                'get-todo': {
+                    url: `${baseUrl}/api/todos/${uuid}/`,
+                    method: 'GET',
+                    headers: defaultHeaders,
+                    body: ''
+                },
+                'update-todo': {
+                    url: `${baseUrl}/api/todos/${uuid}/`,
+                    method: 'PUT',
+                    headers: defaultHeaders,
+                    body: JSON.stringify({
+                        "title": "Update CRUD API documentation",
+                        "description": "Update API docs with the latest changes",
+                        "completed": true,
+                        "priority": 3,
+                        "due_date": "2025-05-10"
+                    }, null, 2)
+                },
+                'delete-todo': {
+                    url: `${baseUrl}/api/todos/${uuid}/`,
+                    method: 'DELETE',
+                    headers: defaultHeaders,
+                    body: ''
+                },
+                'delete-completed-todos': {
+                    url: `${baseUrl}/api/todos/delete_completed/`,
+                    method: 'DELETE',
+                    headers: defaultHeaders,
+                    body: ''
+                },
+                
+                // Product API endpoints
+                'get-products': {
+                    url: `${baseUrl}/api/products/`,
+                    method: 'GET',
+                    headers: defaultHeaders,
+                    body: ''
+                },
+                'create-product': {
+                    url: `${baseUrl}/api/products/`,
+                    method: 'POST',
+                    headers: defaultHeaders,
+                    body: JSON.stringify({
+                        "name": "Smart Phone Pro",
+                        "description": "Latest smartphone with advanced features",
+                        "price": 999.99,
+                        "inventory": 50,
+                        "is_available": true
+                    }, null, 2)
+                },
+                'get-product': {
+                    url: `${baseUrl}/api/products/${uuid}/`,
+                    method: 'GET',
+                    headers: defaultHeaders,
+                    body: ''
+                },
+                'update-product': {
+                    url: `${baseUrl}/api/products/${uuid}/`,
+                    method: 'PUT',
+                    headers: defaultHeaders,
+                    body: JSON.stringify({
+                        "name": "Smart Phone Pro Max",
+                        "description": "Updated version with better features",
+                        "price": 1299.99,
+                        "inventory": 25,
+                        "is_available": true
+                    }, null, 2)
+                },
+                'delete-product': {
+                    url: `${baseUrl}/api/products/${uuid}/`,
+                    method: 'DELETE',
+                    headers: defaultHeaders,
+                    body: ''
+                },
+                'get-available-products': {
+                    url: `${baseUrl}/api/products/available/`,
+                    method: 'GET',
+                    headers: defaultHeaders,
+                    body: ''
+                },
+                'update-inventory': {
+                    url: `${baseUrl}/api/products/${uuid}/update_inventory/`,
+                    method: 'POST',
+                    headers: defaultHeaders,
+                    body: JSON.stringify({
+                        "quantity": 10
+                    }, null, 2)
+                }
+            };
+            
+            // Fill the form with the sample data
+            if (internalSamples[requestType]) {
+                const sample = internalSamples[requestType];
+                $('#id_url').val(sample.url);
+                $('#id_method').val(sample.method);
+                $('#id_headers').val(sample.headers);
+                $('#id_body').val(sample.body);
+                
+                // Trigger the method change event
+                $('#id_method').trigger('change');
+            }
+        });
+        
+        // Initialize - disable body for GET/DELETE
+        $('#id_method').trigger('change');
+    });
+</script>
+{% endblock %}

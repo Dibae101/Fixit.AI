@@ -1,0 +1,143 @@
+{% extends "playground/base.html" %}
+
+{% block title %}RCA Generator - Fixit.AI{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-search"></i> 
+            RCA Generator
+            <small class="text-muted fs-5 ms-2">AI-Powered Root Cause Analysis</small>
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- RCA Generator Form -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-brain me-2"></i> Generate New RCA
+            </div>
+            <div class="card-body">
+                {% if form.chaos_test_run.field.queryset.exists %}
+                    <form method="post" id="rcaGeneratorForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.chaos_test_run.id_for_label }}" class="form-label">Select Failed Test Run</label>
+                            {{ form.chaos_test_run }}
+                            {% if form.chaos_test_run.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.chaos_test_run.errors }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Select a chaos test run to analyze</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="generateRcaBtn">
+                            <i class="fas fa-brain me-1"></i> Generate RCA
+                            <span class="spinner-border spinner-border-sm d-none ms-1" id="generateRcaSpinner" role="status" aria-hidden="true"></span>
+                        </button>
+                    </form>
+                    
+                    <div class="alert alert-info mt-4">
+                        <i class="fas fa-info-circle me-2"></i> RCA generation may take 15-30 seconds as the AI analyzes the failure patterns.
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i> No chaos test runs available for analysis. Go to <a href="{% url 'break_app' %}">Break the App</a> to create some failures first.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent RCAs -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <i class="fas fa-history me-2"></i> Recent RCA Results
+            </div>
+            <div class="card-body">
+                {% if rcas %}
+                    <div class="list-group">
+                        {% for rca in rcas %}
+                            <a href="{% url 'rca_detail' rca.id %}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">{{ rca.chaos_test_run.chaos_test.name }}</h5>
+                                    <small>{{ rca.created_at|date:"M d, H:i" }}</small>
+                                </div>
+                                <p class="mb-1">{{ rca.root_cause|truncatechars:100 }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">{{ rca.chaos_test_run.chaos_test.get_fault_type_display }}</small>
+                                    {% if rca.severity_score <= 3 %}
+                                        <span class="badge severity-badge severity-low">Severity: {{ rca.severity_score }}/10</span>
+                                    {% elif rca.severity_score <= 6 %}
+                                        <span class="badge severity-badge severity-medium">Severity: {{ rca.severity_score }}/10</span>
+                                    {% elif rca.severity_score <= 8 %}
+                                        <span class="badge severity-badge severity-high">Severity: {{ rca.severity_score }}/10</span>
+                                    {% else %}
+                                        <span class="badge severity-badge severity-critical">Severity: {{ rca.severity_score }}/10</span>
+                                    {% endif %}
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center my-3">No RCAs generated yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RCA Overview -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-info-circle me-2"></i> How AI-Powered RCA Works
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-bug fa-3x text-danger"></i>
+                        </div>
+                        <h5 class="text-center">1. Failure Detection</h5>
+                        <p class="text-center">When a chaos test creates a failure, we collect the request, response, and error details.</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-brain fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="text-center">2. AI Analysis</h5>
+                        <p class="text-center">Gemini AI analyzes the failure context to determine the root cause, impact, and severity.</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-wrench fa-3x text-success"></i>
+                        </div>
+                        <h5 class="text-center">3. Actionable Insights</h5>
+                        <p class="text-center">The AI generates a fix strategy and suggests tests to prevent similar issues.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Show loading spinner when generating RCA
+        $('#rcaGeneratorForm').submit(function() {
+            $('#generateRcaBtn').attr('disabled', true);
+            $('#generateRcaSpinner').removeClass('d-none');
+        });
+    });
+</script>
+{% endblock %}

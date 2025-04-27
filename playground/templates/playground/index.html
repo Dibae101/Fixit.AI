@@ -1,0 +1,633 @@
+{% extends "playground/base.html" %}
+
+{% block title %}Dashboard - Fixit.AI{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-tachometer-alt"></i> 
+            Fixit.AI Dashboard
+            <small class="text-muted fs-5 ms-2">AI-Driven Self-Healing API Arena</small>
+        </h1>
+        <p class="lead">End-to-end API testing, fault injection, root cause analysis, and self-healing platform powered by AI.</p>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row mb-5">
+    <div class="col-md-4 mb-4">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="dashboard-stat">
+                    <div class="number">{{ api_requests_count }}</div>
+                    <div class="label">API Requests</div>
+                </div>
+                <div class="progress mt-3">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: {{ api_requests_count_percentage }}%" aria-valuenow="{{ api_requests_count }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <small class="text-muted">{{ api_success_rate }}% success rate</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="dashboard-stat">
+                    <div class="number">{{ chaos_runs_count }}</div>
+                    <div class="label">Chaos Test Runs</div>
+                </div>
+                <div class="progress mt-3">
+                    <div class="progress-bar bg-warning" role="progressbar" style="width: {{ chaos_runs_percentage }}%" aria-valuenow="{{ chaos_runs_count }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <small class="text-muted">{{ recent_chaos_tests }} in the last 24 hours</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="dashboard-stat">
+                    <div class="number">{{ rca_count }}</div>
+                    <div class="label">RCA Generated</div>
+                </div>
+                <div class="progress mt-3">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ rca_percentage }}%" aria-valuenow="{{ rca_count }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <small class="text-muted">{{ fixed_issues_count }} issues resolved</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Get Started Cards -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-3">Quick Start</h2>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center">
+                <i class="fas fa-exchange-alt me-2"></i> API Tester
+            </div>
+            <div class="card-body">
+                <p>Test API endpoints with different HTTP methods, headers, and payloads.</p>
+                <a href="{% url 'api_tester' %}" class="btn btn-primary">Start Testing</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center">
+                <i class="fas fa-bug me-2"></i> Break the App
+            </div>
+            <div class="card-body">
+                <p>Inject faults into your API requests to simulate failures and edge cases.</p>
+                <a href="{% url 'break_app' %}" class="btn btn-primary">Break Something</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center">
+                <i class="fas fa-search me-2"></i> RCA Generator
+            </div>
+            <div class="card-body">
+                <p>Generate AI-powered root cause analysis for failed API requests.</p>
+                <a href="{% url 'rca_generator' %}" class="btn btn-primary">Analyze Failures</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Request History -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-3">All Request History</h2>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-history me-2"></i> API Request History</span>
+                <div>
+                    <select class="form-select form-select-sm d-inline-block w-auto me-2" id="requestStatusFilter">
+                        <option value="all">All Statuses</option>
+                        <option value="success">Success</option>
+                        <option value="error">Error</option>
+                        <option value="redirect">Redirect</option>
+                    </select>
+                    <select class="form-select form-select-sm d-inline-block w-auto" id="requestMethodFilter">
+                        <option value="all">All Methods</option>
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="scrollable-container" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-hover m-0">
+                        <thead class="sticky-top bg-white">
+                            <tr>
+                                <th>ID</th>
+                                <th>Method</th>
+                                <th>URL</th>
+                                <th>Status</th>
+                                <th>Time</th>
+                                <th>Duration</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in all_requests %}
+                                <tr>
+                                    <td>#{{ request.id }}</td>
+                                    <td><span class="badge bg-primary">{{ request.method }}</span></td>
+                                    <td>{{ request.url|truncatechars:30 }}</td>
+                                    <td>
+                                        {% if request.responses.first %}
+                                            {% with response=request.responses.first %}
+                                                {% if response.status_code >= 200 and response.status_code < 300 %}
+                                                    <span class="badge bg-success">{{ response.status_code }}</span>
+                                                {% elif response.status_code >= 300 and response.status_code < 400 %}
+                                                    <span class="badge bg-warning">{{ response.status_code }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">{{ response.status_code }}</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ request.created_at|date:"M d, H:i" }}</td>
+                                    <td>{{ request.duration|default:"N/A" }} ms</td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-outline-primary">View</a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-3">No API requests recorded yet.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <nav>
+                    <ul class="pagination pagination-sm justify-content-center m-0">
+                        {% if all_requests.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page=1">&laquo; First</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ all_requests.previous_page_number }}">Previous</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><a class="page-link" href="#">&laquo; First</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+                        {% endif %}
+                        
+                        <li class="page-item active"><a class="page-link" href="#">{{ all_requests.number }} of {{ all_requests.paginator.num_pages }}</a></li>
+                        
+                        {% if all_requests.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ all_requests.next_page_number }}">Next</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ all_requests.paginator.num_pages }}">Last &raquo;</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">Last &raquo;</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-3">Recent Activity</h2>
+    </div>
+    
+    <!-- Recent API Requests -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-history me-2"></i> Recent API Requests
+            </div>
+            <div class="card-body p-0">
+                {% if recent_requests %}
+                    <div class="scrollable-container" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-hover m-0">
+                            <thead class="sticky-top bg-white">
+                                <tr>
+                                    <th>Method</th>
+                                    <th>URL</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for request in recent_requests %}
+                                    <tr>
+                                        <td><span class="badge bg-primary">{{ request.method }}</span></td>
+                                        <td>{{ request.url|truncatechars:30 }}</td>
+                                        <td>
+                                            {% if request.responses.first %}
+                                                {% with response=request.responses.first %}
+                                                    {% if response.status_code >= 200 and response.status_code < 300 %}
+                                                        <span class="badge bg-success">{{ response.status_code }}</span>
+                                                    {% elif response.status_code >= 300 and response.status_code < 400 %}
+                                                        <span class="badge bg-warning">{{ response.status_code }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">{{ response.status_code }}</span>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% else %}
+                                                <span class="badge bg-secondary">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ request.created_at|date:"M d, H:i" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center my-3">No API requests yet.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer text-end">
+                <a href="{% url 'api_tester' %}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent RCAs -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-search me-2"></i> Recent Root Cause Analyses
+            </div>
+            <div class="card-body p-0">
+                {% if recent_rcas %}
+                    <div class="scrollable-container" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-hover m-0">
+                            <thead class="sticky-top bg-white">
+                                <tr>
+                                    <th>Test</th>
+                                    <th>Severity</th>
+                                    <th>Time</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rca in recent_rcas %}
+                                    <tr>
+                                        <td>{{ rca.chaos_test_run.chaos_test.name|truncatechars:20 }}</td>
+                                        <td>
+                                            {% if rca.severity_score <= 3 %}
+                                                <span class="badge severity-badge severity-low">{{ rca.severity_score }}/10</span>
+                                            {% elif rca.severity_score <= 6 %}
+                                                <span class="badge severity-badge severity-medium">{{ rca.severity_score }}/10</span>
+                                            {% elif rca.severity_score <= 8 %}
+                                                <span class="badge severity-badge severity-high">{{ rca.severity_score }}/10</span>
+                                            {% else %}
+                                                <span class="badge severity-badge severity-critical">{{ rca.severity_score }}/10</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ rca.created_at|date:"M d, H:i" }}</td>
+                                        <td>
+                                            <a href="{% url 'rca_detail' rca.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center my-3">No RCAs generated yet.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <a href="{% url 'rca_generator' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                <nav>
+                    <ul class="pagination pagination-sm m-0">
+                        {% if all_rcas.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?rca_page=1">&laquo;</a></li>
+                            <li class="page-item"><a class="page-link" href="?rca_page={{ all_rcas.previous_page_number }}">Prev</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><a class="page-link" href="#">&laquo;</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">Prev</a></li>
+                        {% endif %}
+                        
+                        <li class="page-item active"><a class="page-link" href="#">{{ all_rcas.number }}</a></li>
+                        
+                        {% if all_rcas.has_next %}
+                            <li class="page-item"><a class="page-link" href="?rca_page={{ all_rcas.next_page_number }}">Next</a></li>
+                            <li class="page-item"><a class="page-link" href="?rca_page={{ all_rcas.paginator.num_pages }}">&raquo;</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">&raquo;</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Available Chaos Tests -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-3">Available Chaos Tests</h2>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-bug me-2"></i> Chaos Test Library</span>
+                <select class="form-select form-select-sm w-auto" id="chaosTypeFilter">
+                    <option value="all">All Types</option>
+                    <option value="network">Network</option>
+                    <option value="latency">Latency</option>
+                    <option value="error">Error</option>
+                    <option value="security">Security</option>
+                </select>
+            </div>
+            <div class="card-body p-0">
+                <div class="scrollable-container" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-hover m-0">
+                        <thead class="sticky-top bg-white">
+                            <tr>
+                                <th>Test Name</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Times Run</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for test in available_chaos_tests %}
+                                <tr>
+                                    <td>{{ test.name }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ test.category }}</span>
+                                    </td>
+                                    <td>{{ test.description|truncatechars:50 }}</td>
+                                    <td>{{ test.run_count }}</td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-warning">Run Test</a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-3">No chaos tests available.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <nav>
+                    <ul class="pagination pagination-sm justify-content-center m-0">
+                        {% if available_chaos_tests.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?chaos_page=1">&laquo; First</a></li>
+                            <li class="page-item"><a class="page-link" href="?chaos_page={{ available_chaos_tests.previous_page_number }}">Previous</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><a class="page-link" href="#">&laquo; First</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+                        {% endif %}
+                        
+                        <li class="page-item active"><a class="page-link" href="#">{{ available_chaos_tests.number }} of {{ available_chaos_tests.paginator.num_pages }}</a></li>
+                        
+                        {% if available_chaos_tests.has_next %}
+                            <li class="page-item"><a class="page-link" href="?chaos_page={{ available_chaos_tests.next_page_number }}">Next</a></li>
+                            <li class="page-item"><a class="page-link" href="?chaos_page={{ available_chaos_tests.paginator.num_pages }}">Last &raquo;</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">Last &raquo;</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Apply Chaos Tests -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-3">Apply Chaos Tests to Recent Requests</h2>
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-flask me-2"></i> Test Your API Resilience
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="requestSelection" class="form-label">Select API Request</label>
+                            <select class="form-select" id="requestSelection">
+                                <option selected disabled>Choose a recent request...</option>
+                                {% for request in recent_requests %}
+                                    <option value="{{ request.id }}">
+                                        {{ request.method }} - {{ request.url|truncatechars:30 }}
+                                        {% if request.responses.first %}
+                                            ({{ request.responses.first.status_code }})
+                                        {% endif %}
+                                    </option>
+                                {% empty %}
+                                    <option disabled>No recent requests available</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="chaosTestSelection" class="form-label">Select Chaos Test</label>
+                            <select class="form-select" id="chaosTestSelection">
+                                <option selected disabled>Choose a chaos test to run...</option>
+                                {% for test in available_chaos_tests %}
+                                    <option value="{{ test.id }}">{{ test.name }} ({{ test.category }})</option>
+                                {% empty %}
+                                    <option disabled>No chaos tests available</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-warning" id="runChaosTestBtn" disabled>
+                        <i class="fas fa-play me-1"></i> Run Chaos Test
+                    </button>
+                </div>
+                
+                <div class="mt-4">
+                    <h5>Recent Test Applications</h5>
+                    <div class="scrollable-container" style="max-height: 200px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Request</th>
+                                    <th>Chaos Test</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for run in recent_chaos_runs %}
+                                    <tr>
+                                        <td>{{ run.api_request.method }} {{ run.api_request.url|truncatechars:20 }}</td>
+                                        <td>{{ run.chaos_test.name }}</td>
+                                        <td>
+                                            {% if run.status == 'completed' %}
+                                                <span class="badge bg-success">Completed</span>
+                                            {% elif run.status == 'running' %}
+                                                <span class="badge bg-primary">Running</span>
+                                            {% elif run.status == 'failed' %}
+                                                <span class="badge bg-danger">Failed</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ run.status|title }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ run.created_at|date:"M d, H:i" }}</td>
+                                        <td>
+                                            <a href="#" class="btn btn-sm btn-outline-primary">View</a>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center">No recent test applications</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent RCA Results -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-3">Recent RCA Results</h2>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-chart-pie me-2"></i> Root Cause Analysis Results</span>
+                <div>
+                    <select class="form-select form-select-sm w-auto" id="rcaSeverityFilter">
+                        <option value="all">All Severities</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="scrollable-container" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-hover m-0">
+                        <thead class="sticky-top bg-white">
+                            <tr>
+                                <th>ID</th>
+                                <th>Issue</th>
+                                <th>Severity</th>
+                                <th>Category</th>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rca in all_rcas %}
+                                <tr>
+                                    <td>#{{ rca.id }}</td>
+                                    <td>{{ rca.summary|truncatechars:40 }}</td>
+                                    <td>
+                                        {% if rca.severity_score <= 3 %}
+                                            <span class="badge severity-badge severity-low">{{ rca.severity_score }}/10</span>
+                                        {% elif rca.severity_score <= 6 %}
+                                            <span class="badge severity-badge severity-medium">{{ rca.severity_score }}/10</span>
+                                        {% elif rca.severity_score <= 8 %}
+                                            <span class="badge severity-badge severity-high">{{ rca.severity_score }}/10</span>
+                                        {% else %}
+                                            <span class="badge severity-badge severity-critical">{{ rca.severity_score }}/10</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ rca.failure_category|default:"Unknown" }}</span>
+                                    </td>
+                                    <td>{{ rca.created_at|date:"M d, H:i" }}</td>
+                                    <td>
+                                        {% if rca.healing_attempts.exists %}
+                                            <span class="badge bg-success">Resolved</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Unresolved</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'rca_detail' rca.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-3">No RCA results available.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <a href="{% url 'rca_generator' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                <nav>
+                    <ul class="pagination pagination-sm m-0">
+                        {% if all_rcas.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?rca_page=1">&laquo;</a></li>
+                            <li class="page-item"><a class="page-link" href="?rca_page={{ all_rcas.previous_page_number }}">Prev</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><a class="page-link" href="#">&laquo;</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">Prev</a></li>
+                        {% endif %}
+                        
+                        <li class="page-item active"><a class="page-link" href="#">{{ all_rcas.number }}</a></li>
+                        
+                        {% if all_rcas.has_next %}
+                            <li class="page-item"><a class="page-link" href="?rca_page={{ all_rcas.next_page_number }}">Next</a></li>
+                            <li class="page-item"><a class="page-link" href="?rca_page={{ all_rcas.paginator.num_pages }}">&raquo;</a></li>
+                        {% else %}
+                            <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">&raquo;</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Enable Run Chaos Test button only when both selections are made
+    document.addEventListener('DOMContentLoaded', function() {
+        const requestSelect = document.getElementById('requestSelection');
+        const chaosTestSelect = document.getElementById('chaosTestSelection');
+        const runButton = document.getElementById('runChaosTestBtn');
+        
+        function checkSelections() {
+            if (requestSelect.value && chaosTestSelect.value && 
+                requestSelect.value !== 'Choose a recent request...' && 
+                chaosTestSelect.value !== 'Choose a chaos test to run...') {
+                runButton.disabled = false;
+            } else {
+                runButton.disabled = true;
+            }
+        }
+        
+        if (requestSelect && chaosTestSelect && runButton) {
+            requestSelect.addEventListener('change', checkSelections);
+            chaosTestSelect.addEventListener('change', checkSelections);
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}
