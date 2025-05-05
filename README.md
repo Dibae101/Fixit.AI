@@ -388,7 +388,7 @@ Use these logs to diagnose issues with the application.
 
 ## Contributors
 
-- Your Name - Initial development
+- Dibya Darshan Khanal - Initial development
 
 ## Acknowledgments
 
