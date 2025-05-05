@@ -4,19 +4,19 @@ FixIt.AI is a Django-based application that provides a comprehensive platform fo
 
 ## Screenshots
 
-### Dashboard
+
 ![FixIt.AI Dashboard](https://github.com/Dibae101/Fixit.AI/raw/main/images/fixit_dashboard.png)
 
-### API Tester
+
 ![API Tester](https://github.com/Dibae101/Fixit.AI/raw/main/images/api_tester.png)
 
-### Break the App
+
 ![Break the App](https://github.com/Dibae101/Fixit.AI/raw/main/images/break_app.png)
 
-### Root Cause Analysis
+
 ![Root Cause Analysis](https://github.com/Dibae101/Fixit.AI/raw/main/images/root_cause_analysis.png)
 
-### API Documentation
+
 ![API Documentation](https://github.com/Dibae101/Fixit.AI/raw/main/images/api_documentation.png)
 
 ## Features
